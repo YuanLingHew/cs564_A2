@@ -38,11 +38,91 @@ BufMgr::BufMgr(std::uint32_t bufs)
   clockHand = bufs - 1;
 }
 
-void BufMgr::advanceClock() {}
+void BufMgr::advanceClock() {
+  clockHand = (clockHand + 1) % numBufs;
+}
 
-void BufMgr::allocBuf(FrameId& frame) {}
+void BufMgr::allocBuf(FrameId& frame) {
 
-void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {}
+  int pinned_frame = 0;
+  while (pinned_frame < numBufs) {
+    
+    advanceClock();
+    BufDesc *buf_desc = &bufDescTable[clockHand];
+    
+    // page is not valid, set frame
+    if (!buf_desc->valid) break;
+
+    // refbit is set, clear and continue
+    if (buf_desc->refbit) {
+      buf_desc->refbit = false;
+      continue;
+    }
+    
+    // page is pinned, continue
+    if (buf_desc->pinCnt > 0) {
+      pinned_frame = pinned_frame + 1;
+      continue;
+    }
+
+    // dirty bit is set
+    if (buf_desc->dirty) {
+
+      File file = buf_desc->file;
+      PageId pageNo = buf_desc->pageNo;
+
+      // flush page to disks
+      Page page = bufPool[clockHand];
+      file.writePage(page);
+
+      // delete from buffer
+      hashTable.remove(file, pageNo);
+      buf_desc->clear();
+    }
+
+    break;
+  }
+
+  // all frame are pinned, throw exception
+  if (pinned_frame == numBufs) {
+    throw BufferExceededException();
+  }
+
+  // set frame
+  frame = clockHand;
+}
+
+void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
+
+  FrameId frame_id;
+  try {
+
+    // look up frame
+    hashTable.lookup(file, pageNo, frame_id);
+
+    // modify frame stat
+    BufDesc *buf_desc = &bufDescTable[frame_id];
+    buf_desc->refbit = 1;
+    buf_desc->pinCnt += 1;
+
+  } catch (HashNotFoundException e) {
+
+    // 1. allocate buffer frame
+    allocPage(frame_id);
+
+    // 2. read page from disk
+    Page new_page = file.readPage(pageNo);
+    bufPool[frame_id] = new_page;
+
+    // 3. insert page into hash table
+    hashTable.insert(file, pageNo, frame_id);
+
+    // 4. set frame
+    bufDescTable[frame_id].Set(file, pageNo);
+  }
+
+  page = &bufPool[frame_id];
+}
 
 void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {}
 
