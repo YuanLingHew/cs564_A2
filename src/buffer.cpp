@@ -126,16 +126,16 @@ void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
 
 void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
 
-    FrameId frame_no; // obtain frame number by reference using file, pageNo
+    FrameId frameNo; // obtain frame number by reference using file, pageNo
 
     try{
       // Find the pageId in the frame of the buffer pool
-      hashTable.lookup(file, pageNo, frame_no);
+      hashTable.lookup(file, pageNo, frameNo);
       // Retrieve BufDesc
-      BufDesc f = bufDescTable[frame_no];
+      BufDesc f = bufDescTable[frameNo];
       // If pin count is already zero, throw PAGENOTPINNED
       if(f.pinCnt == 0)
-          throw PageNotPinnedException(file.filename(), pageNo, frame_no);
+          throw PageNotPinnedException(file.filename(), pageNo, frameNo);
       
       // Decrement pin count
       f.pinCnt--;
@@ -151,8 +151,26 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
 }
 
 void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
-  
 
+    FrameId frameNo;
+    // Allocate an empty page in the specified file
+    Page newPage = file.allocatePage();
+
+    // Call allocBuf() to obtain buffer pool frame
+    allocBuf(frameNo);
+
+    // insert entry and call Set() on the frame 
+    hashTable.insert(file, pageNo, frameNo);
+
+    // Update frame description
+    BufDesc f = bufDescTable[frameNo];
+    f.Set(file, pageNo);
+
+    // Allocate new allocated page to buffer pool frame
+    bufPool[frameNo] = newPage;
+
+    // return new page by reference
+    page = &bufPool[frameNo];
 }
 
 void BufMgr::flushFile(File& file) {}
