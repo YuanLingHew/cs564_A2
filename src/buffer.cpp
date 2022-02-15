@@ -65,7 +65,6 @@ void BufMgr::flushFile(File& file) {
   for (auto& bd : bufDescTable) {
     // finds page associated with the file
     if (bd.file == file) {
-
       // if page of file is pinned
       if (bd.pinCnt > 0){
         throw new PagePinnedException(bd.file.filename(), bd.pageNo, bd.frameNo);
@@ -85,7 +84,6 @@ void BufMgr::flushFile(File& file) {
       bd.clear();
     }
   }
-
 }
 
 /**
@@ -97,12 +95,16 @@ void BufMgr::flushFile(File& file) {
  * @param PageNo 
  */
 void BufMgr::disposePage(File& file, const PageId PageNo) {
-  // checks if page allocates a frame in the buffer pool
   FrameId frameNo;
+  // get frameNo
   hashTable.lookup(file, PageNo, frameNo);
-
-
-
+  // finds frame and frees it, remove entry from hashtable
+  for (BufDesc bd: bufDescTable){
+    if (bd.frameNo == frameNo){
+      bd.clear();
+      hashTable.remove(file, PageNo);
+    }
+  }
 }
 
 void BufMgr::printSelf(void) {
