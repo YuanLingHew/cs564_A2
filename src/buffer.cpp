@@ -48,9 +48,46 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {}
 
 void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {}
 
-void BufMgr::flushFile(File& file) {}
+/**
+ * @brief Scan bufTable for pages belonging to the file, for each page encountered it should:
+ * (a) if the page is dirty, call file.writePage() to flush the page to disk and then set the
+ * dirty bit for the page to false,
+ * (b) remove the page from the hashtable (whether the page is
+ * clean or dirty) and 
+ * (c) invoke the Clear() method of BufDesc for the page frame.
+ * 
+ * @param file 
+ * @throws PagePinnedException If some page of the file is pinned
+ * @throws BadBufferException If an invalid page belonging to the file is encoutered
+ */
+void BufMgr::flushFile(File& file) {
+  // scan bufDescTable (frames)
+  for (auto& bd : bufDescTable) {
+    // finds frame associated with the file
+    if (bd.file == file) {
+      
 
-void BufMgr::disposePage(File& file, const PageId PageNo) {}
+    }
+  }
+
+}
+
+/**
+ * @brief This method deletes a particular page from file. Before deleting the page from file,
+ * it makes sure that if the page to be deleted is allocated a frame in the buffer pool, that
+ * frame is freed and correspondingly entry from hash table is also removed.
+ * 
+ * @param file 
+ * @param PageNo 
+ */
+void BufMgr::disposePage(File& file, const PageId PageNo) {
+  // checks if page allocates a frame in the buffer pool
+  FrameId frameNo;
+  hashTable.lookup(file, PageNo, frameNo);
+
+
+
+}
 
 void BufMgr::printSelf(void) {
   int validFrames = 0;
