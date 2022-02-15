@@ -108,7 +108,7 @@ void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
   } catch (HashNotFoundException e) {
 
     // 1. allocate buffer frame
-    allocPage(frame_id); // allocBuf here
+    allocBuf(frame_id); // allocBuf here
 
     // 2. read page from disk
     Page new_page = file.readPage(pageNo);
@@ -147,11 +147,11 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
     }catch(HashNotFoundException e){
       // If pageId in the frame is not in the buffer pool, do nothing
     }
-    
+
 }
 
 void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
-
+  
 
 }
 
