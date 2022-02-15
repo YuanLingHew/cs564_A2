@@ -63,10 +63,26 @@ void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {}
 void BufMgr::flushFile(File& file) {
   // scan bufDescTable (frames)
   for (auto& bd : bufDescTable) {
-    // finds frame associated with the file
+    // finds page associated with the file
     if (bd.file == file) {
-      
 
+      // if page of file is pinned
+      if (bd.pinCnt > 0){
+        throw new PagePinnedException(bd.file.filename(), bd.pageNo, bd.frameNo);
+      }
+      // if invalid page
+      if (!bd.valid){
+        throw new BadBufferException(bd.frameNo, bd.dirty, bd.valid, bd.refbit);
+      }
+      // if page is dirty, flush page to disk and set dirty bit to false
+      if (bd.dirty){
+        file.writePage(file.readPage(bd.pageNo));
+        bd.dirty = false;
+      }
+      // remove page from hashtable
+      hashTable.remove(file, bd.pageNo);
+      // invoke clear method
+      bd.clear();
     }
   }
 
