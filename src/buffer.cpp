@@ -131,8 +131,10 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
     try{
       // Find the pageId in the frame of the buffer pool
       hashTable.lookup(file, pageNo, frameNo);
+
       // Retrieve BufDesc
       BufDesc f = bufDescTable[frameNo];
+      
       // If pin count is already zero, throw PAGENOTPINNED
       if(f.pinCnt == 0)
           throw PageNotPinnedException(file.filename(), pageNo, frameNo);
