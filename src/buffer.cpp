@@ -133,18 +133,18 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
       hashTable.lookup(file, pageNo, frameNo);
 
       // Retrieve BufDesc
-      BufDesc f = bufDescTable[frameNo];
+      BufDesc *f = &bufDescTable[frameNo];
       
       // If pin count is already zero, throw PAGENOTPINNED
-      if(f.pinCnt == 0)
+      if(f->pinCnt == 0)
         throw PageNotPinnedException(file.filename(), pageNo, frameNo);
       
       // Decrement pin count
-      f.pinCnt--;
+      f->pinCnt--;
     
       // If dirty is true, set the dirty bit
       if(dirty)
-        f.dirty = 1;
+        f->dirty = 1;
       
     }catch(HashNotFoundException e){
       // If pageId in the frame is not in the buffer pool, do nothing
@@ -158,6 +158,9 @@ void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
     // Allocate an empty page in the specified file
     Page newPage = file.allocatePage();
 
+    // return page number of newly allocated page
+    pageNo = newPage.page_number();
+
     // Call allocBuf() to obtain buffer pool frame
     allocBuf(frameNo);
 
@@ -165,8 +168,8 @@ void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
     hashTable.insert(file, pageNo, frameNo);
 
     // Update frame description
-    BufDesc f = bufDescTable[frameNo];
-    f.Set(file, pageNo);
+    BufDesc *f = &bufDescTable[frameNo];
+    f->Set(file, pageNo);
 
     // Allocate new allocated page to buffer pool frame
     bufPool[frameNo] = newPage;
