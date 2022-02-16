@@ -137,7 +137,7 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
       
       // If pin count is already zero, throw PAGENOTPINNED
       if(f.pinCnt == 0)
-          throw PageNotPinnedException(file.filename(), pageNo, frameNo);
+        throw PageNotPinnedException(file.filename(), pageNo, frameNo);
       
       // Decrement pin count
       f.pinCnt--;
@@ -145,7 +145,7 @@ void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
       // If dirty is true, set the dirty bit
       if(dirty)
         f.dirty = 1;
-
+      
     }catch(HashNotFoundException e){
       // If pageId in the frame is not in the buffer pool, do nothing
     }
