@@ -197,11 +197,11 @@ void BufMgr::flushFile(File& file) {
     if (bd.file == file) {
       // if page of file is pinned
       if (bd.pinCnt > 0){
-        throw new PagePinnedException(bd.file.filename(), bd.pageNo, bd.frameNo);
+        throw PagePinnedException(bd.file.filename(), bd.pageNo, bd.frameNo);
       }
       // if invalid page
       if (!bd.valid){
-        throw new BadBufferException(bd.frameNo, bd.dirty, bd.valid, bd.refbit);
+        throw BadBufferException(bd.frameNo, bd.dirty, bd.valid, bd.refbit);
       }
       // if page is dirty, flush page to disk and set dirty bit to false
       if (bd.dirty){
@@ -214,6 +214,32 @@ void BufMgr::flushFile(File& file) {
       bd.clear();
     }
   }
+  
+  // find every frame for this file
+  /*
+    for(FrameId fid = 0; fid < numBufs; fid++){
+      if(bufDescTable[fid].file != file){
+        // not this one
+        continue;
+      }
+      // check if the file cannot be flushed yet
+      int pageNo = bufDescTable[fid].pageNo;
+      if(!bufDescTable[fid].valid){
+        throw BadBufferException(bufDescTable[fid].frameNo, bufDescTable[fid].dirty, bufDescTable[fid].valid, bufDescTable[fid].refbit);
+      }
+      if(bufDescTable[fid].pinCnt > 0){
+        throw PagePinnedException(file.filename(), pageNo, fid);
+      }
+      if(bufDescTable[fid].dirty){
+        // flush
+        file.writePage(bufPool[fid]);            // keep the page number
+        bufDescTable[fid].dirty = 0;
+      }
+      // delete entry from hash/desc
+      hashTable.remove(file, pageNo);
+      bufDescTable[fid].clear();
+    }
+    */
 }
 
 /**
