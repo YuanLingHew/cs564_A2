@@ -25,11 +25,15 @@ constexpr int HASHTABLE_SZ(int bufs) { return ((int)(bufs * 1.2) & -2) + 1; }
 // Constructor of the class BufMgr
 //----------------------------------------
 
+/**
+ * Constructor of BufMgr class
+ */
 BufMgr::BufMgr(std::uint32_t bufs)
     : numBufs(bufs),
       hashTable(HASHTABLE_SZ(bufs)),
       bufDescTable(bufs),
       bufPool(bufs) {
+
   for (FrameId i = 0; i < bufs; i++) {
     bufDescTable[i].frameNo = i;
     bufDescTable[i].valid = false;
@@ -38,10 +42,21 @@ BufMgr::BufMgr(std::uint32_t bufs)
   clockHand = bufs - 1;
 }
 
+/**
+ * @brief Advances clock to the next frame in the buffer pool
+ */
 void BufMgr::advanceClock() {
   clockHand = (clockHand + 1) % numBufs;
 }
 
+/**
+ * @brief Allocate a free frame.
+ *
+ * @param frame   Frame reference, frame ID of allocated frame returned
+ * via this variable
+ * @throws BufferExceededException If no such buffer is found which can be
+ * allocated
+ */
 void BufMgr::allocBuf(FrameId& frame) {
 
   int pinned_frame = 0;
@@ -92,6 +107,17 @@ void BufMgr::allocBuf(FrameId& frame) {
   frame = clockHand;
 }
 
+/**
+ * @brief Reads the given page from the file into a frame and returns the pointer to
+ * page. If the requested page is already present in the buffer pool pointer
+ * to that frame is returned otherwise a new frame is allocated from the
+ * buffer pool for reading the page.
+ *
+ * @param file   	File object
+ * @param PageNo  Page number in the file to be read
+ * @param page  	Reference to page pointer. Used to fetch the Page object
+ * in which requested page from file is read in.
+ */
 void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
 
   FrameId frame_id;
@@ -124,58 +150,79 @@ void BufMgr::readPage(File& file, const PageId pageNo, Page*& page) {
   page = &bufPool[frame_id];
 }
 
+/**
+ * @brief Unpin a page from memory since it is no longer required for it to remain in
+ * memory.
+ *
+ * @param file   	File object
+ * @param PageNo  Page number
+ * @param dirty		True if the page to be unpinned needs to be
+ * marked dirty
+ * @throws  PageNotPinnedException If the page is not already pinned
+ */
 void BufMgr::unPinPage(File& file, const PageId pageNo, const bool dirty) {
 
-    FrameId frameNo; // obtain frame number by reference using file, pageNo
+  FrameId frameNo; // obtain frame number by reference using file, pageNo
 
-    try{
-      // Find the pageId in the frame of the buffer pool
-      hashTable.lookup(file, pageNo, frameNo);
+  try {
 
-      // Retrieve BufDesc
-      BufDesc *f = &bufDescTable[frameNo];
-      
-      // If pin count is already zero, throw PAGENOTPINNED
-      if(f->pinCnt == 0)
-        throw PageNotPinnedException(file.filename(), pageNo, frameNo);
-      
-      // Decrement pin count
-      f->pinCnt--;
+    // Find the pageId in the frame of the buffer pool
+    hashTable.lookup(file, pageNo, frameNo);
+
+    // Retrieve BufDesc
+    BufDesc *f = &bufDescTable[frameNo];
     
-      // If dirty is true, set the dirty bit
-      if(dirty)
-        f->dirty = 1;
-      
-    }catch(HashNotFoundException e){
-      // If pageId in the frame is not in the buffer pool, do nothing
-    }
+    // If pin count is already zero, throw PAGENOTPINNED
+    if (f->pinCnt == 0)
+      throw PageNotPinnedException(file.filename(), pageNo, frameNo);
+    
+    // Decrement pin count
+    f->pinCnt--;
+  
+    // If dirty is true, set the dirty bit
+    if (dirty)
+      f->dirty = 1;
+    
+  } catch (HashNotFoundException e) {
+    // If pageId in the frame is not in the buffer pool, do nothing
+  }
 
 }
 
+/**
+ * @brief Allocates a new, empty page in the file and returns the Page object.
+ * The newly allocated page is also assigned a frame in the buffer pool.
+ *
+ * @param file   	File object
+ * @param PageNo  Page number. The number assigned to the page in the file is
+ * returned via this reference.
+ * @param page  	Reference to page pointer. The newly allocated in-memory
+ * Page object is returned via this reference.
+ */
 void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
 
-    FrameId frameNo;
-    // Allocate an empty page in the specified file
-    Page newPage = file.allocatePage();
+  FrameId frameNo;
+  // Allocate an empty page in the specified file
+  Page newPage = file.allocatePage();
 
-    // return page number of newly allocated page
-    pageNo = newPage.page_number();
+  // return page number of newly allocated page
+  pageNo = newPage.page_number();
 
-    // Call allocBuf() to obtain buffer pool frame
-    allocBuf(frameNo);
+  // Call allocBuf() to obtain buffer pool frame
+  allocBuf(frameNo);
 
-    // insert entry and call Set() on the frame 
-    hashTable.insert(file, pageNo, frameNo);
+  // insert entry and call Set() on the frame 
+  hashTable.insert(file, pageNo, frameNo);
 
-    // Update frame description
-    BufDesc *f = &bufDescTable[frameNo];
-    f->Set(file, pageNo);
+  // Update frame description
+  BufDesc *f = &bufDescTable[frameNo];
+  f->Set(file, pageNo);
 
-    // Allocate new allocated page to buffer pool frame
-    bufPool[frameNo] = newPage;
+  // Allocate new allocated page to buffer pool frame
+  bufPool[frameNo] = newPage;
 
-    // return new page by reference
-    page = &bufPool[frameNo];
+  // return new page by reference
+  page = &bufPool[frameNo];
 }
 
 /**
@@ -191,55 +238,36 @@ void BufMgr::allocPage(File& file, PageId& pageNo, Page*& page) {
  * @throws BadBufferException If an invalid page belonging to the file is encoutered
  */
 void BufMgr::flushFile(File& file) {
+
   // scan bufDescTable (frames)
   for (auto& bd : bufDescTable) {
+
     // finds page associated with the file
     if (bd.file == file) {
+
       // if page of file is pinned
       if (bd.pinCnt > 0){
         throw PagePinnedException(bd.file.filename(), bd.pageNo, bd.frameNo);
       }
+
       // if invalid page
       if (!bd.valid){
         throw BadBufferException(bd.frameNo, bd.dirty, bd.valid, bd.refbit);
       }
+
       // if page is dirty, flush page to disk and set dirty bit to false
       if (bd.dirty){
         file.writePage(file.readPage(bd.pageNo));
         bd.dirty = false;
       }
+
       // remove page from hashtable
       hashTable.remove(file, bd.pageNo);
+      
       // invoke clear method
       bd.clear();
     }
   }
-  
-  // find every frame for this file
-  /*
-    for(FrameId fid = 0; fid < numBufs; fid++){
-      if(bufDescTable[fid].file != file){
-        // not this one
-        continue;
-      }
-      // check if the file cannot be flushed yet
-      int pageNo = bufDescTable[fid].pageNo;
-      if(!bufDescTable[fid].valid){
-        throw BadBufferException(bufDescTable[fid].frameNo, bufDescTable[fid].dirty, bufDescTable[fid].valid, bufDescTable[fid].refbit);
-      }
-      if(bufDescTable[fid].pinCnt > 0){
-        throw PagePinnedException(file.filename(), pageNo, fid);
-      }
-      if(bufDescTable[fid].dirty){
-        // flush
-        file.writePage(bufPool[fid]);            // keep the page number
-        bufDescTable[fid].dirty = 0;
-      }
-      // delete entry from hash/desc
-      hashTable.remove(file, pageNo);
-      bufDescTable[fid].clear();
-    }
-    */
 }
 
 /**
@@ -251,9 +279,12 @@ void BufMgr::flushFile(File& file) {
  * @param PageNo 
  */
 void BufMgr::disposePage(File& file, const PageId PageNo) {
+
   FrameId frameNo;
+
   // get frameNo
   hashTable.lookup(file, PageNo, frameNo);
+  
   // finds frame and frees it, remove entry from hashtable
   for (BufDesc bd: bufDescTable){
     if (bd.frameNo == frameNo){
